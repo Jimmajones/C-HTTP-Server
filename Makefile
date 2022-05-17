@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -pthread
 
 server: server.c
 	$(CC) $(CFLAGS) server.c -o server
