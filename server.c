@@ -13,9 +13,9 @@ and Week 8 lecture notes. Credit to Ayesha Ahmed and Lachlan Andrew. */
 
 int main(int argc, char **argv) {
 	
-	int listenfd = 0, connfd = 0, re = 1, s, n;
+	int listenfd = 0, connfd = 0, re = 1, s;
 	char buffer[MAX_REQUEST_SIZE];
-	struct addrinfo hints, *res, *rp;
+	struct addrinfo hints, *res;
 	
 	// Set up our connection - IPv4, TCP, and passive.
 	memset(&hints, 0, sizeof(hints));
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 	
 	// Have a pleasant conversation.
 	snprintf(buffer, sizeof(buffer), "Hello World!\n");
-	n = write(connfd, buffer, strlen(buffer));
+	write(connfd, buffer, strlen(buffer));
 	
 	// Close the connection.
 	close(connfd);
