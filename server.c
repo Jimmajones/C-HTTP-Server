@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 
 #define IMPLEMENTS_IPV6
+#define MULTITHREADED
 
 #define LONGEST_MIME_TYPE 25 // The longest MIME type we will put in the header.
 #define INITIAL_OUTPUT_SIZE 500 // The initial size of the outgoing buffer.
