@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
 	// "GET", count how many characters long the requested resource is,
 	// then copy the argument line and concatenate it with the resource.
 	int i;
-	for (i = 5; i < n; i++) {
+	for (i = 4; i < n; i++) {
 		if (buffer[i] == ' ') {
 			break;
 		}
@@ -95,8 +95,8 @@ int main(int argc, char **argv) {
 	
 	char path_buffer[MAX_REQUEST_SIZE];
 	strcpy(path_buffer, argv[PATH_ARG]);
-	strncat(path_buffer, buffer + 5, i - 5);
-	
+	strncat(path_buffer, buffer + 4, i - 4);
+	printf("Requested: %s\n", path_buffer);
 	// Check if the file exists.
 	if (access(path_buffer, F_OK) == 0) {
 		snprintf(buffer, sizeof(buffer), "HTTP/1.0 200 OK\r\n");
