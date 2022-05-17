@@ -143,8 +143,31 @@ int main(int argc, char **argv) {
 					exit(EXIT_FAILURE);
 				}
 				
+				int ext_start = strlen(path_buffer);
+				for (int i = ext_start; i > 0; i--) {
+					if (path_buffer[i] == '.') {
+						ext_start = i;
+						break;
+					}
+				}
+				
+				char mime_type[25];
+				printf("extension: %s\n", path_buffer + ext_start);
+				if (strcmp(path_buffer + ext_start, ".html") == 0) {
+					strcpy(mime_type, "text/html");
+				} else if (strcmp(path_buffer + ext_start, ".jpg") == 0) {
+					strcpy(mime_type, "image/jpeg");
+				} else if (strcmp(path_buffer + ext_start, ".css") == 0) {
+					strcpy(mime_type, "text/css");
+				} else if (strcmp(path_buffer + ext_start, ".js") == 0) {
+					strcpy(mime_type, "text/javascript");
+				} else {
+					strcpy(mime_type, "application/octet-stream");
+				}
 				// Construct the header.
-				snprintf(o_buffer, o_buffer_n, "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\n\r\n", stat_buffer.st_size);
+				snprintf(o_buffer, o_buffer_n, 
+					  "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\nContent-Type: %s\r\n\r\n", 
+					  stat_buffer.st_size, mime_type);
 				int header_length = strlen(o_buffer);
 				// "Append" the file contents.
 				o_buffer_n = header_length + stat_buffer.st_size;
