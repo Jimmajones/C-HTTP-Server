@@ -33,10 +33,10 @@ int main(int argc, char **argv) {
 	struct addrinfo hints, *res, *rp;
 	
 	int is_ipv4 = 1;
-	if (strcmp(argv[PROTOCOL_ARG], "6")) {
+	if (strcmp(argv[PROTOCOL_ARG], "6") == 0) {
 		is_ipv4 = 0;
 	}
-	
+
 	// Set up our connection - IPv4, TCP, and passive.
 	memset(&hints, 0, sizeof(hints));
 	if (is_ipv4) {
@@ -56,10 +56,14 @@ int main(int argc, char **argv) {
 	
 	// Create the socket on the specified address.
 	for (rp = res; rp != NULL; rp = rp->ai_next) {
-		if (rp->ai_family == hints.ai_family &&
-			  (listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) < 0) {
-			perror("socket");
-			exit(EXIT_FAILURE);
+		if (rp->ai_family == hints.ai_family) {
+			listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+			if (listenfd > 0) {
+				break;
+			} else {
+				perror("socket");
+				exit(EXIT_FAILURE);
+			}
 		}
 	}
 	
@@ -70,7 +74,7 @@ int main(int argc, char **argv) {
 	}
 	
 	// Bind the specified socket to the specified address.
-	if (bind(listenfd, res->ai_addr, res->ai_addrlen) < 0) {
+	if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) < 0) {
 		perror("bind");
 		exit(EXIT_FAILURE);
 	}
