@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
+#define MAX_OUTPUT_SIZE 500000 // The largest output we can expect to send back.
 #define MAX_REQUEST_SIZE 2000 // The largest GET request we can expect.
 #define MAX_SYN_PACKETS 10
 
@@ -25,8 +26,7 @@ int main(int argc, char **argv) {
 	}
 	
 	int listenfd = 0, connfd = 0, re = 1, s, n;
-	char buffer[MAX_REQUEST_SIZE];
-	char path_buffer[MAX_REQUEST_SIZE * 2];
+
 	struct addrinfo hints, *res;
 	
 	// Set up our connection - IPv4, TCP, and passive.
@@ -79,6 +79,9 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 		
+		char buffer[MAX_OUTPUT_SIZE];
+		char path_buffer[MAX_REQUEST_SIZE * 2];
+		
 		// Start a pleasant conversation.
 		n = read(connfd, buffer, MAX_REQUEST_SIZE);
 		if (n < 0) {
@@ -116,10 +119,13 @@ int main(int argc, char **argv) {
 			len++;
 		}
 		
+		int buffer_size;
+		
 		// Time to prepare a response.
 		if (!valid_request) {
 			printf("Bad syntax.\n");
 			snprintf(buffer, sizeof(buffer), "HTTP/1.0 400 Bad Request\r\n");
+			buffer_size = strlen(buffer);
 		} else {
 			// Concatenate the root directory and requested path.
 			strcpy(path_buffer, argv[PATH_ARG]);
@@ -138,15 +144,19 @@ int main(int argc, char **argv) {
 				
 				
 				snprintf(buffer, sizeof(buffer), "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\n\r\n", stat_buffer.st_size);
+				buffer_size = strlen(buffer);
+				fread(buffer + buffer_size, sizeof(buffer), 1, fp);
+				buffer_size += stat_buffer.st_size;
 				fclose(fp);
 			} else {
 				printf("Not found.\n");
 				snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
+				buffer_size = strlen(buffer);
 			}
 		}		
 		
 		// Send our message to the client.
-		n = write(connfd, buffer, strlen(buffer));
+		n = write(connfd, buffer, buffer_size);
 		if (n < 0) {
 			perror("write");
 			exit(EXIT_FAILURE);
