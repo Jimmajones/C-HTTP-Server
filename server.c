@@ -6,7 +6,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
-#define MAX_OUTPUT_SIZE 500000 // The largest output we can expect to send back.
+#define INITIAL_OUTPUT_SIZE 500 // The largest output we can expect to send back.
 #define MAX_REQUEST_SIZE 2000 // The largest GET request we can expect.
 #define MAX_SYN_PACKETS 10
 
@@ -79,11 +79,13 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 		
-		char buffer[MAX_OUTPUT_SIZE];
+		char i_buffer[MAX_REQUEST_SIZE];
 		char path_buffer[MAX_REQUEST_SIZE * 2];
-		
+		int o_buffer_n = INITIAL_OUTPUT_SIZE;
+		char *o_buffer = malloc(INITIAL_OUTPUT_SIZE * sizeof(*o_buffer));
+
 		// Start a pleasant conversation.
-		n = read(connfd, buffer, MAX_REQUEST_SIZE);
+		n = read(connfd, i_buffer, MAX_REQUEST_SIZE);
 		if (n < 0) {
 			perror("read");
 			exit(EXIT_FAILURE);
@@ -91,11 +93,11 @@ int main(int argc, char **argv) {
 		
 		// An awfully direct way of checking that this is a GET request.
 		int valid_request = 0;
-		if (tolower(buffer[0]) 		== 	'g' 
-			  && tolower(buffer[1]) == 	'e' 
-			  && tolower(buffer[2]) == 	't' 
-			  && buffer[3] 			== 	' '
-			  && buffer[4] 			== 	'/') {
+		if (tolower(i_buffer[0]) 		== 	'g' 
+			  && tolower(i_buffer[1]) == 	'e' 
+			  && tolower(i_buffer[2]) == 	't' 
+			  && i_buffer[3] 			== 	' '
+			  && i_buffer[4] 			== 	'/') {
 			valid_request = 1;
 		}
 		
@@ -103,66 +105,68 @@ int main(int argc, char **argv) {
 		int len = 0;
 		for (int i = 4; i < n; i++) {
 			// Check if we've reached the end of the path.
-			if (buffer[i] == ' ') {
+			if (i_buffer[i] == ' ') {
 				break;
 			}
 			
 			// Look for any invalid path components.
 			if (len > 2
-				  && buffer[i] 	   == '/'
-				  && buffer[i - 1] == '.'
-				  && buffer[i - 2] == '.') {
+				  && i_buffer[i] 	 == '/'
+				  && i_buffer[i - 1] == '.'
+				  && i_buffer[i - 2] == '.') {
 				valid_request = 0;
 				break;
 			}
 			
 			len++;
 		}
-		
-		int buffer_size;
-		
+
 		// Time to prepare a response.
 		if (!valid_request) {
 			printf("Bad syntax.\n");
-			snprintf(buffer, sizeof(buffer), "HTTP/1.0 400 Bad Request\r\n");
-			buffer_size = strlen(buffer);
+			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 400 Bad Request\r\n");
+			o_buffer_n = strlen(o_buffer);
 		} else {
 			// Concatenate the root directory and requested path.
 			strcpy(path_buffer, argv[PATH_ARG]);
-			strncat(path_buffer, buffer + 4, len);
+			strncat(path_buffer, i_buffer + 4, len);
 			printf("Requested: '%s'\n", path_buffer);
 			
-			FILE *fp = fopen(path_buffer, "rb");
-			if (fp != NULL) {
+			// Check the path.
+			struct stat stat_buffer;
+			if (stat(path_buffer, &stat_buffer) == 0 && S_ISREG(stat_buffer.st_mode)) {
 				printf("Found!\n");
-				
-				struct stat stat_buffer;
-				if (fstat(fileno(fp), &stat_buffer) < 0) {
-					perror("fstat");
+				// Open the requested file.
+				FILE *fp = fopen(path_buffer, "rb");
+				if (fp == NULL) {
+					perror("fopen");
 					exit(EXIT_FAILURE);
 				}
 				
-				
-				snprintf(buffer, sizeof(buffer), "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\n\r\n", stat_buffer.st_size);
-				buffer_size = strlen(buffer);
-				fread(buffer + buffer_size, sizeof(buffer), 1, fp);
-				buffer_size += stat_buffer.st_size;
-				fclose(fp);
+				// Construct the header.
+				snprintf(o_buffer, o_buffer_n, "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\n\r\n", stat_buffer.st_size);
+				int header_length = strlen(o_buffer);
+				// "Append" the file contents.
+				o_buffer_n = header_length + stat_buffer.st_size;
+				o_buffer = realloc(o_buffer, o_buffer_n * sizeof(*o_buffer));
+				fread(o_buffer + header_length, o_buffer_n, 1, fp);
+				fclose(fp);				
 			} else {
 				printf("Not found.\n");
-				snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
-				buffer_size = strlen(buffer);
+				snprintf(o_buffer, o_buffer_n, "HTTP/1.0 404 Not Found\r\n");
+				o_buffer_n = strlen(o_buffer);
 			}
 		}		
 		
 		// Send our message to the client.
-		n = write(connfd, buffer, buffer_size);
+		n = write(connfd, o_buffer, o_buffer_n);
 		if (n < 0) {
 			perror("write");
 			exit(EXIT_FAILURE);
 		}		
 		
 		// Close the connection.
+		free(o_buffer);
 		close(connfd);
 	}
 
