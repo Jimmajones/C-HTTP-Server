@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 #define MAX_REQUEST_SIZE 2000 // The largest GET request we can expect.
 #define MAX_SYN_PACKETS 10
@@ -125,9 +126,23 @@ int main(int argc, char **argv) {
 			strncat(path_buffer, buffer + 4, len);
 			printf("Requested: '%s'\n", path_buffer);
 			
-			
-			printf("Not found.\n");
-			snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
+			FILE *fp = fopen(path_buffer, "rb");
+			if (fp != NULL) {
+				printf("Found!\n");
+				
+				struct stat stat_buffer;
+				if (fstat(fileno(fp), &stat_buffer) < 0) {
+					perror("fstat");
+					exit(EXIT_FAILURE);
+				}
+				
+				
+				snprintf(buffer, sizeof(buffer), "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\n\r\n", stat_buffer.st_size);
+				fclose(fp);
+			} else {
+				printf("Not found.\n");
+				snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
+			}
 		}		
 		
 		// Send our message to the client.
