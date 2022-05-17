@@ -64,47 +64,49 @@ int main(int argc, char **argv) {
 		perror("listen");
 		exit(EXIT_FAILURE);
 	}
-	
-	// Wait for an incoming connection and capture the remote address.
-	struct sockaddr_storage client_addr;
-	socklen_t client_addr_size = sizeof(client_addr);
-	connfd = accept(listenfd, (struct sockaddr *) &client_addr, &client_addr_size);
-	if (connfd < 0) {
-		perror("read");
-		exit(EXIT_FAILURE);
-	}
-	
-	// Have a pleasant conversation.
-	n = read(connfd, buffer, MAX_REQUEST_SIZE);
-	if (n < 0) {
-		perror("read");
-		exit(EXIT_FAILURE);
-	}
-	buffer[n] = '\0';
-	
-	// Very, VERY hacky way of getting the filepath: Assume we're
-	// receiving a GET request and skip straight to the "token" after
-	// "GET", count how many characters long the requested resource is,
-	// then copy the argument line and concatenate it with the resource.
-	int i;
-	for (i = 4; i < n; i++) {
-		if (buffer[i] == ' ') {
-			break;
+	while (1) {
+		// Wait for an incoming connection and capture the remote address.
+		struct sockaddr_storage client_addr;
+		socklen_t client_addr_size = sizeof(client_addr);
+		connfd = accept(listenfd, (struct sockaddr *) &client_addr, &client_addr_size);
+		if (connfd < 0) {
+			perror("read");
+			exit(EXIT_FAILURE);
 		}
+		
+		// Have a pleasant conversation.
+		n = read(connfd, buffer, MAX_REQUEST_SIZE);
+		if (n < 0) {
+			perror("read");
+			exit(EXIT_FAILURE);
+		}
+		buffer[n] = '\0';
+		
+		// Very, VERY hacky way of getting the filepath: Assume we're
+		// receiving a GET request and skip straight to the "token" after
+		// "GET", count how many characters long the requested resource is,
+		// then copy the argument line and concatenate it with the resource.
+		int i;
+		for (i = 4; i < n; i++) {
+			if (buffer[i] == ' ') {
+				break;
+			}
+		}
+		
+		char path_buffer[MAX_REQUEST_SIZE];
+		strcpy(path_buffer, argv[PATH_ARG]);
+		strncat(path_buffer, buffer + 4, i - 4);
+		printf("Requested: %s\n", path_buffer);
+		// Check if the file exists.
+		if (access(path_buffer, F_OK) == 0) {
+			printf("Found.\n");
+			snprintf(buffer, sizeof(buffer), "HTTP/1.0 200 OK\r\n");
+		} else {
+			printf("Not found.\n");
+			snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
+		}
+		write(connfd, buffer, strlen(buffer));
 	}
-	
-	char path_buffer[MAX_REQUEST_SIZE];
-	strcpy(path_buffer, argv[PATH_ARG]);
-	strncat(path_buffer, buffer + 4, i - 4);
-	printf("Requested: %s\n", path_buffer);
-	// Check if the file exists.
-	if (access(path_buffer, F_OK) == 0) {
-		snprintf(buffer, sizeof(buffer), "HTTP/1.0 200 OK\r\n");
-	} else {
-		snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
-	}
-	write(connfd, buffer, strlen(buffer));
-	
 	// Close the connection.
 	close(connfd);
 
