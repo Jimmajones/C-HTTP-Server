@@ -56,13 +56,13 @@ int main(int argc, char **argv) {
 	
 	// Create the socket on the specified address.
 	for (rp = res; rp != NULL; rp = rp->ai_next) {
-		if (rp->ai_family == AF_INET6 &&
+		if (rp->ai_family == hints.ai_family &&
 			  (listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) < 0) {
 			perror("socket");
 			exit(EXIT_FAILURE);
 		}
 	}
-
+	
 	// Re-use the same address/port repeatedly.
 	if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &re, sizeof(re)) < 0) {
 		perror("setsockopt");
