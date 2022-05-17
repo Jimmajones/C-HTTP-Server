@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
 		perror("listen");
 		exit(EXIT_FAILURE);
 	}
+	
 	while (1) {
 		// Wait for an incoming connection and capture the remote address.
 		struct sockaddr_storage client_addr;
@@ -106,9 +107,10 @@ int main(int argc, char **argv) {
 			snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
 		}
 		write(connfd, buffer, strlen(buffer));
+		
+		// Close the connection.
+		close(connfd);
 	}
-	// Close the connection.
-	close(connfd);
 
 	return 0;
 }
