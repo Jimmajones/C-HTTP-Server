@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
+#define IMPLEMENTS_IPV6
+
 #define LONGEST_MIME_TYPE 25 // The longest MIME type we will put in the header.
 #define INITIAL_OUTPUT_SIZE 500 // The initial size of the outgoing buffer.
 #define MAX_REQUEST_SIZE 2000 // The largest GET request we can expect.
@@ -28,11 +30,20 @@ int main(int argc, char **argv) {
 	
 	int listenfd = 0, connfd = 0, re = 1, s, n;
 
-	struct addrinfo hints, *res;
+	struct addrinfo hints, *res, *rp;
+	
+	int is_ipv4 = 1;
+	if (strcmp(argv[PROTOCOL_ARG], "6")) {
+		is_ipv4 = 0;
+	}
 	
 	// Set up our connection - IPv4, TCP, and passive.
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
+	if (is_ipv4) {
+		hints.ai_family = AF_INET;
+	} else {
+		hints.ai_family = AF_INET6;
+	}
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 	
@@ -44,12 +55,14 @@ int main(int argc, char **argv) {
 	}
 	
 	// Create the socket on the specified address.
-	listenfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-	if (listenfd < 0) {
-		perror("socket");
-		exit(EXIT_FAILURE);
+	for (rp = res; rp != NULL; rp = rp->ai_next) {
+		if (rp->ai_family == AF_INET6 &&
+			  (listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) < 0) {
+			perror("socket");
+			exit(EXIT_FAILURE);
+		}
 	}
-	
+
 	// Re-use the same address/port repeatedly.
 	if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &re, sizeof(re)) < 0) {
 		perror("setsockopt");
