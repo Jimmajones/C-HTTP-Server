@@ -7,11 +7,20 @@
 #define MAX_REQUEST_SIZE 2000 // The largest GET request we can expect.
 #define MAX_SYN_PACKETS 10
 
+#define PROTOCOL_ARG 1
+#define PORT_ARG 2
+#define PATH_ARG 3
+
 /* Basic TCP socket creation and connection code adapted from
 various COMP30023 materials - namely, server.c from Practical 9
 and Week 8 lecture notes. Credit to Ayesha Ahmed and Lachlan Andrew. */
 
 int main(int argc, char **argv) {
+	
+	if (argc != 4) {
+		perror("Invalid number of arguments!");
+		exit(EXIT_FAILURE);
+	}
 	
 	int listenfd = 0, connfd = 0, re = 1, s;
 	char buffer[MAX_REQUEST_SIZE];
@@ -24,7 +33,7 @@ int main(int argc, char **argv) {
 	hints.ai_flags = AI_PASSIVE;
 	
 	// Initialize the Internet address(es) we will bind to.
-	s = getaddrinfo(NULL, "8018", &hints, &res);
+	s = getaddrinfo(NULL, argv[PORT_ARG], &hints, &res);
 	if (s != 0) {
 		perror("getaddrinfo");
 		exit(EXIT_FAILURE);
