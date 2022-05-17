@@ -22,8 +22,8 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 	
-	int listenfd = 0, connfd = 0, re = 1, s;
-	char buffer[MAX_REQUEST_SIZE];
+	int listenfd = 0, connfd = 0, re = 1, s, n;
+	char buffer[MAX_REQUEST_SIZE + 1]; // Add one for null-termination.
 	struct addrinfo hints, *res;
 	
 	// Set up our connection - IPv4, TCP, and passive.
@@ -69,9 +69,40 @@ int main(int argc, char **argv) {
 	struct sockaddr_storage client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
 	connfd = accept(listenfd, (struct sockaddr *) &client_addr, &client_addr_size);
+	if (connfd < 0) {
+		perror("read");
+		exit(EXIT_FAILURE);
+	}
 	
 	// Have a pleasant conversation.
-	snprintf(buffer, sizeof(buffer), "Hello World!\n");
+	n = read(connfd, buffer, MAX_REQUEST_SIZE);
+	if (n < 0) {
+		perror("read");
+		exit(EXIT_FAILURE);
+	}
+	buffer[n] = '\0';
+	
+	// Very, VERY hacky way of getting the filepath: Assume we're
+	// receiving a GET request and skip straight to the "token" after
+	// "GET", count how many characters long the requested resource is,
+	// then copy the argument line and concatenate it with the resource.
+	int i;
+	for (i = 5; i < n; i++) {
+		if (buffer[i] == ' ') {
+			break;
+		}
+	}
+	
+	char path_buffer[MAX_REQUEST_SIZE];
+	strcpy(path_buffer, argv[PATH_ARG]);
+	strncat(path_buffer, buffer + 5, i - 5);
+	
+	// Check if the file exists.
+	if (access(path_buffer, F_OK) == 0) {
+		snprintf(buffer, sizeof(buffer), "HTTP/1.0 200 OK\r\n");
+	} else {
+		snprintf(buffer, sizeof(buffer), "HTTP/1.0 404 Not Found\r\n");
+	}
 	write(connfd, buffer, strlen(buffer));
 	
 	// Close the connection.

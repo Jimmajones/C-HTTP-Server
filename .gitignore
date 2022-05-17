@@ -3,3 +3,6 @@ server
 
 # Object files
 *.o
+
+# Test files
+www/
