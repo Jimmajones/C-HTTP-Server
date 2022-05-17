@@ -6,7 +6,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
-#define INITIAL_OUTPUT_SIZE 500 // The largest output we can expect to send back.
+#define LONGEST_MIME_TYPE 25 // The longest MIME type we will put in the header.
+#define INITIAL_OUTPUT_SIZE 500 // The initial size of the outgoing buffer.
 #define MAX_REQUEST_SIZE 2000 // The largest GET request we can expect.
 #define MAX_SYN_PACKETS 10
 
@@ -100,33 +101,32 @@ int main(int argc, char **argv) {
 			  && i_buffer[4] 			== 	'/') {
 			valid_request = 1;
 		}
-		
-		// Get the length of the requested path.
-		int len = 0;
-		for (int i = 4; i < n; i++) {
-			// Check if we've reached the end of the path.
-			if (i_buffer[i] == ' ') {
-				break;
-			}
-			
-			// Look for any invalid path components.
-			if (len > 2
-				  && i_buffer[i] 	 == '/'
-				  && i_buffer[i - 1] == '.'
-				  && i_buffer[i - 2] == '.') {
-				valid_request = 0;
-				break;
-			}
-			
-			len++;
-		}
 
 		// Time to prepare a response.
-		if (!valid_request) {
+		if (valid_request < 0) {
 			printf("Bad syntax.\n");
 			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 400 Bad Request\r\n");
 			o_buffer_n = strlen(o_buffer);
 		} else {
+			// Get the length of the requested path.
+			int len = 0;
+			for (int i = 4; i < n; i++) {
+				// Check if we've reached the end of the path.
+				if (i_buffer[i] == ' ') {
+					break;
+				}
+				
+				// Look for any invalid path components.
+				if (len > 2
+					  && i_buffer[i] 	 == '/'
+					  && i_buffer[i - 1] == '.'
+					  && i_buffer[i - 2] == '.') {
+					valid_request = 0;
+					break;
+				}
+				
+				len++;
+			}
 			// Concatenate the root directory and requested path.
 			strcpy(path_buffer, argv[PATH_ARG]);
 			strncat(path_buffer, i_buffer + 4, len);
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
 			
 			// Check the path.
 			struct stat stat_buffer;
-			if (stat(path_buffer, &stat_buffer) == 0 && S_ISREG(stat_buffer.st_mode)) {
+			if (valid_request && stat(path_buffer, &stat_buffer) == 0 && S_ISREG(stat_buffer.st_mode)) {
 				printf("Found!\n");
 				// Open the requested file.
 				FILE *fp = fopen(path_buffer, "rb");
@@ -151,8 +151,8 @@ int main(int argc, char **argv) {
 					}
 				}
 				
-				char mime_type[25];
-				printf("extension: %s\n", path_buffer + ext_start);
+				// Get the corresponding MIME type.
+				char mime_type[LONGEST_MIME_TYPE];
 				if (strcmp(path_buffer + ext_start, ".html") == 0) {
 					strcpy(mime_type, "text/html");
 				} else if (strcmp(path_buffer + ext_start, ".jpg") == 0) {
@@ -164,6 +164,7 @@ int main(int argc, char **argv) {
 				} else {
 					strcpy(mime_type, "application/octet-stream");
 				}
+				
 				// Construct the header.
 				snprintf(o_buffer, o_buffer_n, 
 					  "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\nContent-Type: %s\r\n\r\n", 
