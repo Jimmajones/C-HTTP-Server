@@ -20,6 +20,8 @@
 #define PORT_ARG 2
 #define PATH_ARG 3
 
+pthread_mutex_t lock;
+
 typedef struct thread_info {
 	int connfd;
 	char web_root[MAX_REQUEST_SIZE];
@@ -83,6 +85,8 @@ void *handle_connection(void *p) {
 		
 		// Check the path.
 		struct stat stat_buffer;
+		
+		pthread_mutex_lock(&lock);
 		if (valid_request && stat(path_buffer, &stat_buffer) == 0 && S_ISREG(stat_buffer.st_mode)) {
 			printf("Found!\n");
 			// Open the requested file.
@@ -129,6 +133,7 @@ void *handle_connection(void *p) {
 			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 404 Not Found\r\n");
 			o_buffer_n = strlen(o_buffer);
 		}
+		pthread_mutex_unlock(&lock);
 	}		
 	
 	// Send our message to the client.
@@ -157,6 +162,11 @@ int main(int argc, char **argv) {
 	pthread_t tid[N_THREADS];
 	int thread_n = 0;
 	int connfd[N_THREADS];
+	
+	if (pthread_mutex_init(&lock, NULL) != 0) {
+		perror("pthread_mutex_init");
+		exit(EXIT_FAILURE);
+	}
 	
 	int listenfd = 0, re = 1, s;
 
@@ -227,19 +237,31 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 		
+		// Create a new thread to handle incoming connection.
 		thread_info_t new_thread_info;
 		new_thread_info.connfd = connfd[thread_n];
 		strcpy(new_thread_info.web_root, argv[PATH_ARG]);
 		
-		pthread_create(&tid[thread_n], NULL, handle_connection, &new_thread_info);
-		pthread_join(tid[thread_n], NULL);
+		if (pthread_create(&tid[thread_n], NULL, handle_connection, &new_thread_info)) {
+			perror("pthread_create");
+			exit(EXIT_FAILURE);
+		}
+		
+		if (pthread_join(tid[thread_n], NULL)) {
+			perror("pthread_join");
+			exit(EXIT_FAILURE);
+		}
 		thread_n++;
 		
+		// Cycle through the threads. This will probably have cataclysmic
+		// consequences for more than N_THREADS threads, but I don't
+		// know how to multi-thread properly.
 		if (thread_n >= N_THREADS) {
 			thread_n = 0;
 		}
 	}
 
 	close(listenfd);
+	pthread_mutex_destroy(&lock);
 	return 0;
 }
