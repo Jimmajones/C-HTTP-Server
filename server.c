@@ -10,7 +10,7 @@
 #define IMPLEMENTS_IPV6
 #define MULTITHREADED
 
-#define N_THREADS 10
+#define N_THREADS 100
 
 #define GET_PATH_START 4 // The index of a request where the pathname begins.
 
