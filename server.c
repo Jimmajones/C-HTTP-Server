@@ -178,8 +178,8 @@ int main(int argc, char **argv) {
 	}
 	
 	pthread_t tid[N_THREADS];
+	thread_info_t t_info[N_THREADS];
 	int thread_n = 0;
-	int connfd[N_THREADS];
 	
 	if (pthread_mutex_init(&lock, NULL) != 0) {
 		perror("pthread_mutex_init");
@@ -249,18 +249,17 @@ int main(int argc, char **argv) {
 	
 	while (1) {
 		// Wait for an incoming connection and capture the remote address.
-		connfd[thread_n] = accept(listenfd, (struct sockaddr *) &client_addr, &client_addr_size);
+		int connfd = accept(listenfd, (struct sockaddr *) &client_addr, &client_addr_size);
 		if (connfd < 0) {
 			perror("accept");
 			exit(EXIT_FAILURE);
 		}
 		
 		// Create a new thread to handle incoming connection.
-		thread_info_t new_thread_info;
-		new_thread_info.connfd = connfd[thread_n];
-		strcpy(new_thread_info.web_root, argv[PATH_ARG]);
+		t_info[thread_n].connfd = connfd;
+		strcpy(t_info[thread_n].web_root, argv[PATH_ARG]);
 		
-		if (pthread_create(&tid[thread_n], NULL, handle_connection, &new_thread_info)) {
+		if (pthread_create(&tid[thread_n], NULL, handle_connection, &t_info)) {
 			perror("pthread_create");
 			exit(EXIT_FAILURE);
 		}
