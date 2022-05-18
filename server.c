@@ -11,6 +11,9 @@
 #define MULTITHREADED
 
 #define N_THREADS 10
+
+#define GET_PATH_START 4 // The index of a request where the pathname begins.
+
 #define LONGEST_MIME_TYPE 25 // The longest MIME type we will put in the header.
 #define INITIAL_OUTPUT_SIZE 500 // The initial size of the outgoing buffer.
 #define MAX_REQUEST_SIZE 2000 // The largest GET request we can expect.
@@ -29,46 +32,60 @@ typedef struct thread_info {
 
 void *handle_connection(void *p) {
 	thread_info_t *t_info = (thread_info_t *) p;
-	int connfd = t_info->connfd;
+	int n, connfd = t_info->connfd;
 	
-	char i_buffer[MAX_REQUEST_SIZE];
+	char i_buffer[MAX_REQUEST_SIZE + 1];
 	char path_buffer[MAX_REQUEST_SIZE * 2];
 	int o_buffer_n = INITIAL_OUTPUT_SIZE;
 	char *o_buffer = malloc(INITIAL_OUTPUT_SIZE * sizeof(*o_buffer));
 
 	// Start a pleasant conversation.
-	int n = read(connfd, i_buffer, MAX_REQUEST_SIZE);
-	if (n < 0) {
-		perror("read");
-		exit(EXIT_FAILURE);
+	memset(i_buffer, 0, sizeof(i_buffer));
+	int is_finished = 0, bytes_read = 0;
+	while (!is_finished) {
+		// Read into the buffer, shifted over accordingly.
+		n = recv(connfd, i_buffer + bytes_read, MAX_REQUEST_SIZE - bytes_read, 0);
+		if (n < 0) {
+			perror("recv");
+			exit(EXIT_FAILURE);
+		}
+		bytes_read += n;
+		
+		// If there's two new-lines in a row, the HTTP message is complete.
+		if (strstr(i_buffer, "\n\n\n\n") != NULL || strstr(i_buffer, "\r\n\r\n") != NULL) {
+			is_finished = 1;
+		}
 	}
+	printf("==MESSAGE==\n%s\n==END==\nBytes read: %d\n", i_buffer, bytes_read);
 	
-	// An awfully direct way of checking that this is a GET request.
+	// An awfully direct way of checking that this is a GET request;
+	// if it starts with the 5 characters "GET /" (with any casing), it's valid!
 	int valid_request = 0;
-	if (tolower(i_buffer[0]) 		== 	'g' 
-		  && tolower(i_buffer[1]) == 	'e' 
-		  && tolower(i_buffer[2]) == 	't' 
+	if (bytes_read > 4
+		  && tolower(i_buffer[0]) 	== 	'g' 
+		  && tolower(i_buffer[1]) 	== 	'e' 
+		  && tolower(i_buffer[2]) 	== 	't' 
 		  && i_buffer[3] 			== 	' '
 		  && i_buffer[4] 			== 	'/') {
 		valid_request = 1;
 	}
 
 	// Time to prepare a response.
-	if (valid_request < 0) {
-		printf("Bad syntax.\n");
-		snprintf(o_buffer, o_buffer_n, "HTTP/1.0 400 Bad Request\r\n");
+	if (!valid_request) {
+		printf("Bad syntax. Returning 400.\n");
+		snprintf(o_buffer, o_buffer_n, "HTTP/1.0 400 Bad Request\r\n\r\n");
 		o_buffer_n = strlen(o_buffer);
 	} else {
 		// Get the length of the requested path.
 		int len = 0;
-		for (int i = 4; i < n; i++) {
+		for (int i = 4; i < bytes_read; i++) {
 			// Check if we've reached the end of the path.
 			if (i_buffer[i] == ' ') {
 				break;
 			}
 			
-			// Look for any invalid path components.
-			if (len > 2
+			// Look for any invalid path components while we're here.
+			if (len > 1
 				  && i_buffer[i] 	 == '/'
 				  && i_buffer[i - 1] == '.'
 				  && i_buffer[i - 2] == '.') {
@@ -85,10 +102,9 @@ void *handle_connection(void *p) {
 		
 		// Check the path.
 		struct stat stat_buffer;
-		
-		pthread_mutex_lock(&lock);
 		if (valid_request && stat(path_buffer, &stat_buffer) == 0 && S_ISREG(stat_buffer.st_mode)) {
-			printf("Found!\n");
+			printf("Found! Returning 200.\n");
+			
 			// Open the requested file.
 			FILE *fp = fopen(path_buffer, "rb");
 			if (fp == NULL) {
@@ -122,24 +138,24 @@ void *handle_connection(void *p) {
 			snprintf(o_buffer, o_buffer_n, 
 				  "HTTP/1.0 200 OK\r\nContent-Length: %ld\r\nContent-Type: %s\r\n\r\n", 
 				  stat_buffer.st_size, mime_type);
-			int header_length = strlen(o_buffer);
+			
 			// "Append" the file contents.
+			int header_length = strlen(o_buffer);
 			o_buffer_n = header_length + stat_buffer.st_size;
 			o_buffer = realloc(o_buffer, o_buffer_n * sizeof(*o_buffer));
 			fread(o_buffer + header_length, o_buffer_n, 1, fp);
 			fclose(fp);				
 		} else {
-			printf("Not found.\n");
-			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 404 Not Found\r\n");
+			printf("Not found. Returning 404.\n");
+			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 404 Not Found\r\n\r\n");
 			o_buffer_n = strlen(o_buffer);
 		}
-		pthread_mutex_unlock(&lock);
 	}		
 	
 	// Send our message to the client.
-	n = write(connfd, o_buffer, o_buffer_n);
+	n = send(connfd, o_buffer, o_buffer_n, 0);
 	if (n < 0) {
-		perror("write");
+		perror("send");
 		exit(EXIT_FAILURE);
 	}		
 	
@@ -246,7 +262,7 @@ int main(int argc, char **argv) {
 			perror("pthread_create");
 			exit(EXIT_FAILURE);
 		}
-		
+
 		if (pthread_join(tid[thread_n], NULL)) {
 			perror("pthread_join");
 			exit(EXIT_FAILURE);
