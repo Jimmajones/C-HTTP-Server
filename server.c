@@ -97,44 +97,54 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 		
-		char i_buffer[MAX_REQUEST_SIZE];
+		char i_buffer[MAX_REQUEST_SIZE + 1];
 		char path_buffer[MAX_REQUEST_SIZE * 2];
 		int o_buffer_n = INITIAL_OUTPUT_SIZE;
 		char *o_buffer = malloc(INITIAL_OUTPUT_SIZE * sizeof(*o_buffer));
 
 		// Start a pleasant conversation.
-		n = read(connfd, i_buffer, MAX_REQUEST_SIZE);
-		if (n < 0) {
-			perror("read");
-			exit(EXIT_FAILURE);
+		memset(i_buffer, 0, sizeof(i_buffer));
+		int is_finished = 0, bytes_read = 0;
+		while (!is_finished) {
+			n = recv(connfd, i_buffer + bytes_read, MAX_REQUEST_SIZE - bytes_read, 0);
+			if (n < 0) {
+				perror("read");
+				exit(EXIT_FAILURE);
+			}
+			bytes_read += n;
+			
+			if (strstr(i_buffer, "\n\n\n\n") != NULL || strstr(i_buffer, "\r\n\r\n") != NULL) {
+				is_finished = 1;
+			}
 		}
+		printf("==MESSAGE==\n%s\n==END==\n", i_buffer);
 		
 		// An awfully direct way of checking that this is a GET request.
 		int valid_request = 0;
 		if (tolower(i_buffer[0]) 		== 	'g' 
-			  && tolower(i_buffer[1]) == 	'e' 
-			  && tolower(i_buffer[2]) == 	't' 
+			  && tolower(i_buffer[1]) 	== 	'e' 
+			  && tolower(i_buffer[2]) 	== 	't' 
 			  && i_buffer[3] 			== 	' '
 			  && i_buffer[4] 			== 	'/') {
 			valid_request = 1;
 		}
 
 		// Time to prepare a response.
-		if (valid_request < 0) {
+		if (!valid_request) {
 			printf("Bad syntax.\n");
-			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 400 Bad Request\r\n");
+			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 400 Bad Request\r\n\r\n");
 			o_buffer_n = strlen(o_buffer);
 		} else {
 			// Get the length of the requested path.
 			int len = 0;
-			for (int i = 4; i < n; i++) {
+			for (int i = 4; i < bytes_read; i++) {
 				// Check if we've reached the end of the path.
 				if (i_buffer[i] == ' ') {
 					break;
 				}
 				
 				// Look for any invalid path components.
-				if (len > 2
+				if (len > 1
 					  && i_buffer[i] 	 == '/'
 					  && i_buffer[i - 1] == '.'
 					  && i_buffer[i - 2] == '.') {
@@ -194,13 +204,13 @@ int main(int argc, char **argv) {
 				fclose(fp);				
 			} else {
 				printf("Not found.\n");
-				snprintf(o_buffer, o_buffer_n, "HTTP/1.0 404 Not Found\r\n");
+				snprintf(o_buffer, o_buffer_n, "HTTP/1.0 404 Not Found\r\n\r\n");
 				o_buffer_n = strlen(o_buffer);
 			}
 		}		
 		
 		// Send our message to the client.
-		n = write(connfd, o_buffer, o_buffer_n);
+		n = send(connfd, o_buffer, o_buffer_n, 0);
 		if (n < 0) {
 			perror("write");
 			exit(EXIT_FAILURE);
