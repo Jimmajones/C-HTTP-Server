@@ -31,8 +31,10 @@ typedef struct thread_info {
 } thread_info_t;
 
 void *handle_connection(void *p) {
+
 	thread_info_t *t_info = (thread_info_t *) p;
 	int n, connfd = t_info->connfd;
+	printf("Started thread handling socket %d\n", connfd);
 	
 	char i_buffer[MAX_REQUEST_SIZE + 1];
 	char path_buffer[MAX_REQUEST_SIZE * 2];
@@ -263,15 +265,15 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 
-		if (pthread_join(tid[thread_n], NULL)) {
-			perror("pthread_join");
+		if (pthread_detach(tid[thread_n])) {
+			perror("pthread_detach");
 			exit(EXIT_FAILURE);
 		}
 		thread_n++;
 		
 		// Cycle through the threads. This will probably have cataclysmic
-		// consequences for more than N_THREADS threads, but I don't
-		// know how to multi-thread properly.
+		// consequences if more than N_THREADS threads run at a time, but I don't
+		// know how to multi-thread properly. Tee-hee.
 		if (thread_n >= N_THREADS) {
 			thread_n = 0;
 		}
