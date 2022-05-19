@@ -12,9 +12,7 @@ A basic web server that handles HTTP 1.0 GET requests and responds appropiately.
 #include <unistd.h>
 #include <netdb.h>
 #include <ctype.h>
-#include <limits.h>
 #include <pthread.h>
-#include <errno.h>
 #include <sys/stat.h>
 
 #define IMPLEMENTS_IPV6
@@ -79,7 +77,7 @@ void *handle_connection(void *p) {
 	if (n == 0) {
 		printf("Client disconnected unexpectedly.\n");
 	} else {
-		printf("==MESSAGE==\n%s\n==END==\nBytes read: %d\n", i_buffer, bytes_read);
+		printf("Bytes read: %d\n", bytes_read);
 		
 		// Time to prepare a response.
 		// An awfully direct way of checking that this is a GET request;
@@ -122,8 +120,7 @@ void *handle_connection(void *p) {
 			// Check the path, ensuring it's within the web root directory,
 			// that it exists, and that it is a normal readable file.
 			struct stat stat_buffer;
-			if (strncmp(full_path, web_root, strlen(web_root)) == 0
-				  && stat(full_path, &stat_buffer) == 0 
+			if (stat(full_path, &stat_buffer) == 0 
 				  && S_ISREG(stat_buffer.st_mode)) {
 				
 				// Open the requested file.
