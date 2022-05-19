@@ -182,11 +182,15 @@ void *handle_connection(void *p) {
 		}		
 		
 		// Send our message to the client.
-		n = send(connfd, o_buffer, o_buffer_n, 0);
-		if (n < 0) {
-			perror("send");
-			exit(EXIT_FAILURE);
-		}	
+		int bytes_sent = 0;
+		while (bytes_sent < o_buffer_n) {
+			n = send(connfd, o_buffer + bytes_sent, o_buffer_n - bytes_sent, 0);
+			if (n < 0) {
+				perror("send");
+				exit(EXIT_FAILURE);
+			}	
+			bytes_sent += n;
+		}
 	}	
 	
 	// Close the connection and free memory.
