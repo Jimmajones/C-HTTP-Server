@@ -14,6 +14,7 @@ A basic web server that handles HTTP 1.0 GET requests and responds appropiately.
 #include <ctype.h>
 #include <limits.h>
 #include <pthread.h>
+#include <errno.h>
 #include <sys/stat.h>
 
 #define IMPLEMENTS_IPV6
@@ -116,33 +117,26 @@ void *handle_connection(void *p) {
 			strcpy(full_path, web_root);
 			strcat(full_path, request_path_buffer);
 			
-			// Now get the overall canonical path.
-			char *full_real_path = realpath(full_path, NULL);
-			if (full_real_path == NULL) {
-				perror("realpath");
-				exit(EXIT_FAILURE);
-			}			
-			
-			printf("Requested: '%s'\n", full_real_path);
+			printf("Requested: '%s'\n", full_path);
 			
 			// Check the path, ensuring it's within the web root directory,
 			// that it exists, and that it is a normal readable file.
 			struct stat stat_buffer;
-			if (strncmp(full_real_path, web_root, strlen(web_root)) == 0
-				  && stat(full_real_path, &stat_buffer) == 0 
+			if (strncmp(full_path, web_root, strlen(web_root)) == 0
+				  && stat(full_path, &stat_buffer) == 0 
 				  && S_ISREG(stat_buffer.st_mode)) {
 				
 				// Open the requested file.
-				FILE *fp = fopen(full_real_path, "rb");
+				FILE *fp = fopen(full_path, "rb");
 				if (fp == NULL) {
 					perror("fopen");
 					exit(EXIT_FAILURE);
 				}
 				
 				// Look for the last dot in the filename.
-				int ext_start = strlen(full_real_path);
+				int ext_start = strlen(full_path);
 				for (int i = ext_start; i > 0; i--) {
-					if (full_real_path[i] == '.') {
+					if (full_path[i] == '.') {
 						ext_start = i;
 						break;
 					}
@@ -150,13 +144,13 @@ void *handle_connection(void *p) {
 				
 				// Get the corresponding MIME type.
 				char mime_type[LONGEST_MIME_TYPE];
-				if (strcmp(full_real_path + ext_start, ".html") == 0) {
+				if (strcmp(full_path + ext_start, ".html") == 0) {
 					strcpy(mime_type, "text/html");
-				} else if (strcmp(full_real_path + ext_start, ".jpg") == 0) {
+				} else if (strcmp(full_path + ext_start, ".jpg") == 0) {
 					strcpy(mime_type, "image/jpeg");
-				} else if (strcmp(full_real_path + ext_start, ".css") == 0) {
+				} else if (strcmp(full_path + ext_start, ".css") == 0) {
 					strcpy(mime_type, "text/css");
-				} else if (strcmp(full_real_path + ext_start, ".js") == 0) {
+				} else if (strcmp(full_path + ext_start, ".js") == 0) {
 					strcpy(mime_type, "text/javascript");
 				} else {
 					strcpy(mime_type, "application/octet-stream");
@@ -187,7 +181,6 @@ void *handle_connection(void *p) {
 			}
 			
 			free(full_path);
-			free(full_real_path);
 		}		
 		
 		// Send our message to the client.
