@@ -23,8 +23,6 @@
 #define PORT_ARG 2
 #define PATH_ARG 3
 
-pthread_mutex_t lock;
-
 typedef struct thread_info {
 	int connfd;
 	char web_root[MAX_REQUEST_SIZE];
@@ -163,6 +161,7 @@ void *handle_connection(void *p) {
 	
 	// Close the connection.
 	free(o_buffer);
+	free(t_info);
 	close(connfd);
 	return NULL;
 }
@@ -178,13 +177,8 @@ int main(int argc, char **argv) {
 	}
 	
 	pthread_t tid[N_THREADS];
-	thread_info_t t_info[N_THREADS];
+	thread_info_t *t_info[N_THREADS];
 	int thread_n = 0;
-	
-	if (pthread_mutex_init(&lock, NULL) != 0) {
-		perror("pthread_mutex_init");
-		exit(EXIT_FAILURE);
-	}
 	
 	int listenfd = 0, re = 1, s;
 
@@ -256,10 +250,11 @@ int main(int argc, char **argv) {
 		}
 		
 		// Create a new thread to handle incoming connection.
-		t_info[thread_n].connfd = connfd;
-		strcpy(t_info[thread_n].web_root, argv[PATH_ARG]);
+		t_info[thread_n] = malloc(sizeof(t_info));
+		t_info[thread_n]->connfd = connfd;
+		strcpy(t_info[thread_n]->web_root, argv[PATH_ARG]);
 		
-		if (pthread_create(&tid[thread_n], NULL, handle_connection, &t_info)) {
+		if (pthread_create(&tid[thread_n], NULL, handle_connection, t_info[thread_n])) {
 			perror("pthread_create");
 			exit(EXIT_FAILURE);
 		}
@@ -279,6 +274,5 @@ int main(int argc, char **argv) {
 	}
 
 	close(listenfd);
-	pthread_mutex_destroy(&lock);
 	return 0;
 }
