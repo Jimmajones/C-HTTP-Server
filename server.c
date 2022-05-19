@@ -25,7 +25,7 @@
 
 typedef struct thread_info {
 	int connfd;
-	char web_root[MAX_REQUEST_SIZE];
+	char *web_root;
 } thread_info_t;
 
 void *handle_connection(void *p) {
@@ -253,7 +253,7 @@ int main(int argc, char **argv) {
 		// Create a new thread to handle incoming connection.
 		t_info[thread_n] = malloc(sizeof(t_info));
 		t_info[thread_n]->connfd = connfd;
-		strcpy(t_info[thread_n]->web_root, argv[PATH_ARG]);
+		t_info[thread_n]->web_root = argv[PATH_ARG];
 		
 		if (pthread_create(&tid[thread_n], NULL, handle_connection, t_info[thread_n])) {
 			perror("pthread_create");
