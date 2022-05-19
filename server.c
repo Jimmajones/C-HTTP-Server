@@ -117,10 +117,11 @@ void *handle_connection(void *p) {
 			
 			printf("Requested: '%s'\n", full_path);
 			
-			// Check the path, ensuring it's within the web root directory,
+			// Check the path, ensuring it has no escape components,
 			// that it exists, and that it is a normal readable file.
 			struct stat stat_buffer;
-			if (stat(full_path, &stat_buffer) == 0 
+			if (strstr(request_path_buffer, "/../") == NULL
+				  && stat(full_path, &stat_buffer) == 0 
 				  && S_ISREG(stat_buffer.st_mode)) {
 				
 				// Open the requested file.
