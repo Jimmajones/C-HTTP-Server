@@ -10,7 +10,7 @@
 #define IMPLEMENTS_IPV6
 #define MULTITHREADED
 
-#define N_THREADS 100
+#define N_THREADS 10
 
 #define GET_PATH_START 4 // The index of a request where the pathname begins.
 
@@ -32,6 +32,7 @@ void *handle_connection(void *p) {
 
 	thread_info_t *t_info = (thread_info_t *) p;
 	int n, connfd = t_info->connfd;
+	char *web_root = t_info->web_root;
 	printf("Started thread handling socket %d\n", connfd);
 	
 	char i_buffer[MAX_REQUEST_SIZE + 1];
@@ -96,7 +97,7 @@ void *handle_connection(void *p) {
 			len++;
 		}
 		// Concatenate the root directory and requested path.
-		strcpy(path_buffer, t_info->web_root);
+		strcpy(path_buffer, web_root);
 		strncat(path_buffer, i_buffer + 4, len);
 		printf("Requested: '%s'\n", path_buffer);
 		
@@ -266,8 +267,9 @@ int main(int argc, char **argv) {
 		thread_n++;
 		
 		// Cycle through the threads. This will probably have cataclysmic
-		// consequences if more than N_THREADS threads run at a time, but I don't
-		// know how to multi-thread properly. Tee-hee.
+		// consequences if more than N_THREADS threads run at a time, but maybe
+		// not since each thread is detached anyway. I don't know.
+		// Multi-threading is hard :(
 		if (thread_n >= N_THREADS) {
 			thread_n = 0;
 		}
