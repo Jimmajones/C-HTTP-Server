@@ -18,17 +18,17 @@ A basic web server that handles HTTP 1.0 GET requests and responds appropiately.
 #define IMPLEMENTS_IPV6
 #define MULTITHREADED
 
-#define N_THREADS 			10
-#define MAX_SYN_PACKETS 	10
+#define N_THREADS       10
+#define MAX_SYN_PACKETS 10
 
-#define LONGEST_MIME_TYPE 	25 		// The longest MIME type we will put in the header.
-#define INITIAL_PATH_SIZE 	100 	// The initial size of the path buffer.
-#define INITIAL_OUTPUT_SIZE 200 	// The initial size of the outgoing buffer.
-#define MAX_REQUEST_SIZE 	2000 	// The largest GET request we can expect.
+#define LONGEST_MIME_TYPE   25   // The longest MIME type we will put in the header.
+#define INITIAL_PATH_SIZE   100  // The initial size of the path buffer.
+#define INITIAL_OUTPUT_SIZE 200  // The initial size of the outgoing buffer.
+#define MAX_REQUEST_SIZE    2000 // The largest GET request we can expect.
 
-#define PROTOCOL_ARG 1				// The argv index for IPv4/IPv6.
-#define PORT_ARG 2					// The argv index for the port to use.
-#define PATH_ARG 3					// The argv index for the web root path.
+#define PROTOCOL_ARG 1 // The argv index for IPv4/IPv6.
+#define PORT_ARG     2 // The argv index for the port to use.
+#define PATH_ARG     3 // The argv index for the web root path.
 
 // A structure for storing parameters to pass to threads.
 typedef struct thread_info {
@@ -83,11 +83,11 @@ void *handle_connection(void *p) {
 		// An awfully direct way of checking that this is a GET request;
 		// if it starts with the 5 characters "GET /" (with any casing), it's valid!
 		if (!(bytes_read > 4
-			  && tolower(i_buffer[0]) 	== 	'g'
-			  && tolower(i_buffer[1]) 	== 	'e'
-			  && tolower(i_buffer[2]) 	== 	't'
-			  && i_buffer[3] 			== 	' '
-			  && i_buffer[4] 			== 	'/')) {
+			  && tolower(i_buffer[0]) == 'g'
+			  && tolower(i_buffer[1]) == 'e'
+			  && tolower(i_buffer[2]) == 't'
+			  && i_buffer[3]          == ' '
+			  && i_buffer[4]          == '/')) {
 			printf("Bad syntax. Returning 400.\n");
 			snprintf(o_buffer, o_buffer_n, "HTTP/1.0 400 Bad Request\r\n\r\n");
 			o_buffer_n = strlen(o_buffer);
@@ -142,13 +142,13 @@ void *handle_connection(void *p) {
 
 				// Get the corresponding MIME type.
 				char mime_type[LONGEST_MIME_TYPE];
-				if (strcmp(full_path + ext_start, ".html") 			== 0) {
+				if (strcmp(full_path + ext_start, ".html")       == 0) {
 					strcpy(mime_type, "text/html");
-				} else if (strcmp(full_path + ext_start, ".jpg") 	== 0) {
+				} else if (strcmp(full_path + ext_start, ".jpg") == 0) {
 					strcpy(mime_type, "image/jpeg");
-				} else if (strcmp(full_path + ext_start, ".css") 	== 0) {
+				} else if (strcmp(full_path + ext_start, ".css") == 0) {
 					strcpy(mime_type, "text/css");
-				} else if (strcmp(full_path + ext_start, ".js") 	== 0) {
+				} else if (strcmp(full_path + ext_start, ".js")  == 0) {
 					strcpy(mime_type, "text/javascript");
 				} else {
 					strcpy(mime_type, "application/octet-stream");
