@@ -254,11 +254,11 @@ int main(int argc, char **argv) {
 	for (rp = res; rp != NULL; rp = rp->ai_next) {
 		if (rp->ai_family == hints.ai_family) {
 			listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-			if (listenfd > 0) {
-				break;
-			} else {
+			if (listenfd < 0) {
 				perror("socket");
 				exit(EXIT_FAILURE);
+			} else {
+				break;
 			}
 		}
 	}
