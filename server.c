@@ -208,7 +208,7 @@ int main(int argc, char **argv) {
 	
 	// Very basic input checking.
 	if (argc != 4) {
-		perror("Invalid number of arguments!");
+		fprintf(stderr, "Invalid number of arguments!\n");
 		exit(EXIT_FAILURE);
 	}
 
